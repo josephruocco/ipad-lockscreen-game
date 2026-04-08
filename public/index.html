@@ -397,6 +397,24 @@
   .winner-stats { font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 8px; }
   .winner-next { margin-top: 20px; font-size: 15px; color: #0a84ff; }
 
+  /* Copyright */
+  .copyright {
+    position: absolute;
+    bottom: 22px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    z-index: 3;
+  }
+
+  .copyright a {
+    color: rgba(255,255,255,0.35);
+    text-decoration: none;
+  }
+
+  .copyright a:hover { color: rgba(255,255,255,0.7); }
+
   /* Home bar */
   .home-bar {
     position: absolute;
@@ -643,6 +661,8 @@
     <div class="name-error" id="nameError"></div>
     <button class="name-submit" id="nameSubmit" onclick="submitName()" data-i18n="joinBtn">Join</button>
   </div>
+
+  <div class="copyright">© <a href="https://josephruocco.net" target="_blank" rel="noopener">Joseph Ruocco</a>. All rights reserved.</div>
 
   <div class="home-bar"></div>
 </div>
