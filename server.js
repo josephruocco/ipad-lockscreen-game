@@ -13,7 +13,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const AUTO_RESET_MINUTES = 30;
 
 const DISABLE_SCHEDULE = [
   { after: 6,  seconds: 60 },
@@ -98,8 +97,6 @@ let round = {
   totalGuesses: 0,
 };
 
-let autoResetTimeout = null;
-
 const players = new Map();
 
 function generatePassword() {
@@ -151,19 +148,7 @@ function getStats() {
     totalGuesses: round.totalGuesses,
     roundNumber: round.number,
     roundStartedAt: round.startedAt,
-    autoResetAt: round.startedAt + AUTO_RESET_MINUTES * 60 * 1000,
   };
-}
-
-function scheduleAutoReset() {
-  if (autoResetTimeout) clearTimeout(autoResetTimeout);
-  autoResetTimeout = setTimeout(() => {
-    if (!round.winner) {
-      console.log(`Auto-reset: Round ${round.number} timed out after ${AUTO_RESET_MINUTES} minutes`);
-      startNewRound();
-      broadcastNewRound();
-    }
-  }, AUTO_RESET_MINUTES * 60 * 1000);
 }
 
 function startNewRound() {
@@ -178,7 +163,6 @@ function startNewRound() {
     p.attempts = 0;
     p.disabledUntil = null;
   }
-  scheduleAutoReset();
   console.log(`Round ${round.number} — password: ${round.password}`);
 }
 
@@ -288,5 +272,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Lockscreen Game running on http://localhost:${PORT}`);
   console.log(`Round ${round.number} — password: ${round.password}`);
-  scheduleAutoReset();
 });
