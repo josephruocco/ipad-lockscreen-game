@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Crack the Phone</title>
+<title>Lockscreen Game</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -79,7 +79,7 @@
     width: 100%;
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 16px;
     padding: 12px 16px 0;
     font-size: 12px;
     color: rgba(255,255,255,0.55);
@@ -109,6 +109,77 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
   }
+
+  /* Players panel toggle */
+  .players-toggle-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.55);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0 2px;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .players-toggle-btn:hover { color: rgba(255,255,255,0.85); }
+
+  /* Players panel */
+  .players-panel {
+    position: absolute;
+    top: 44px;
+    right: 8px;
+    z-index: 6;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 8px 10px;
+    min-width: 120px;
+    max-width: 150px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .players-panel.hidden { display: none; }
+
+  .players-panel-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 6px;
+  }
+
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+    overflow: hidden;
+  }
+
+  .player-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .player-name.is-me { color: #ffd60a; font-weight: 600; }
+
+  .player-dot {
+    flex-shrink: 0;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .player-dot.active { background: #30d158; }
+  .player-dot.locked { background: #ff453a; }
 
   /* Time & Date */
   .time-display {
@@ -310,7 +381,8 @@
   .winner-overlay.hidden { display: none; }
   .winner-overlay.you-won { background: rgba(0,40,0,0.85); }
 
-  .winner-title { font-size: 32px; font-weight: 600; margin-bottom: 8px; }
+  .winner-title { font-size: 32px; font-weight: 600; margin-bottom: 4px; }
+  .winner-name { font-size: 20px; color: #ffd60a; font-weight: 500; margin-bottom: 6px; min-height: 26px; }
   .winner-subtitle { font-size: 17px; color: rgba(255,255,255,0.7); margin-bottom: 6px; }
 
   .winner-code {
@@ -354,6 +426,114 @@
     0% { transform: translateY(0) rotate(0deg); opacity: 1; }
     100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
   }
+
+  /* Name overlay */
+  .name-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    background: rgba(0,0,0,0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+  }
+
+  .name-overlay.hidden { display: none; }
+
+  .name-overlay-logo {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 24px;
+  }
+
+  .name-overlay-title {
+    font-size: 24px;
+    font-weight: 300;
+    color: #fff;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+
+  .name-overlay-subtitle {
+    font-size: 15px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 28px;
+    text-align: center;
+    max-width: 220px;
+  }
+
+  .name-input {
+    width: 100%;
+    max-width: 240px;
+    padding: 13px 16px;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 18px;
+    text-align: center;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+
+  .name-input::placeholder { color: rgba(255,255,255,0.25); }
+  .name-input:focus { border-color: rgba(255,255,255,0.45); }
+
+  .name-error {
+    min-height: 20px;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #ff453a;
+    text-align: center;
+  }
+
+  .name-submit {
+    margin-top: 18px;
+    padding: 13px 44px;
+    border: none;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .name-submit:hover { background: rgba(255,255,255,0.24); }
+  .name-submit:active { background: rgba(255,255,255,0.34); transform: scale(0.97); }
+
+  /* Language selector */
+  .lang-select {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.7);
+    font-size: 12px;
+    padding: 5px 8px;
+    cursor: pointer;
+    outline: none;
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .lang-select option {
+    background: #1c1c1e;
+    color: #fff;
+  }
 </style>
 </head>
 <body>
@@ -364,9 +544,16 @@
   <!-- Live stats -->
   <div class="live-stats">
     <div class="stat"><div class="live-dot"></div> <span>LIVE</span></div>
-    <div class="stat"><span class="stat-value" id="statOnline">0</span> playing</div>
-    <div class="stat"><span class="stat-value" id="statLocked">0</span> locked out</div>
-    <div class="stat"><span class="stat-value" id="statGuesses">0</span> guesses</div>
+    <div class="stat"><span class="stat-value" id="statOnline">0</span> <span data-i18n="playing">playing</span></div>
+    <div class="stat"><span class="stat-value" id="statLocked">0</span> <span data-i18n="lockedOut">locked out</span></div>
+    <div class="stat"><span class="stat-value" id="statGuesses">0</span> <span data-i18n="guesses">guesses</span></div>
+    <button class="players-toggle-btn" onclick="togglePlayers()">👥</button>
+  </div>
+
+  <!-- Players panel -->
+  <div class="players-panel hidden" id="playersPanel">
+    <div class="players-panel-label" data-i18n="players">Players</div>
+    <div id="playersList"></div>
   </div>
 
   <div class="time-display">
@@ -378,7 +565,7 @@
 
   <!-- Lock Content -->
   <div class="lock-content">
-    <div class="passcode-label">Enter Passcode</div>
+    <div class="passcode-label" data-i18n="enterPasscode">Enter Passcode</div>
 
     <div class="dots-row" id="dotsRow">
       <div class="dot" id="d0"></div>
@@ -407,15 +594,16 @@
   <!-- Disabled overlay -->
   <div class="disabled-overlay hidden" id="disabledOverlay">
     <div class="disabled-icon">&#128274;</div>
-    <div class="disabled-title">Phone is Disabled</div>
-    <div class="disabled-subtitle">Try again in</div>
+    <div class="disabled-title" data-i18n="phoneDisabled">Phone is Disabled</div>
+    <div class="disabled-subtitle" data-i18n="tryAgainIn">Try again in</div>
     <div class="disabled-timer" id="disabledTimer">1:00</div>
   </div>
 
   <!-- Winner overlay -->
   <div class="winner-overlay hidden" id="winnerOverlay">
     <div class="winner-title" id="winnerTitle">Someone Cracked It!</div>
-    <div class="winner-subtitle">The passcode was</div>
+    <div class="winner-name" id="winnerName"></div>
+    <div class="winner-subtitle" data-i18n="thePasscodeWas">The passcode was</div>
     <div class="winner-code" id="winnerCode">0000</div>
     <div class="winner-stats" id="winnerStats"></div>
     <div class="winner-next" id="winnerNext">Next round starting...</div>
@@ -424,6 +612,38 @@
   <!-- Confetti -->
   <div class="confetti-container hidden" id="confettiContainer"></div>
 
+  <!-- Name entry overlay -->
+  <div class="name-overlay" id="nameOverlay">
+    <select class="lang-select" id="langSelect" onchange="changeLang(this.value)">
+      <option value="en">English</option>
+      <option value="es">Español</option>
+      <option value="fr">Français</option>
+      <option value="de">Deutsch</option>
+      <option value="pt">Português</option>
+      <option value="ja">日本語</option>
+      <option value="zh">中文</option>
+      <option value="ar">العربية</option>
+      <option value="hi">हिंदी</option>
+      <option value="ko">한국어</option>
+    </select>
+    <div class="name-overlay-logo">Lockscreen Game</div>
+    <div class="name-overlay-title" data-i18n="enterName">Enter Your Name</div>
+    <div class="name-overlay-subtitle" data-i18n="joinSubtitle">Pick a display name to play</div>
+    <input
+      class="name-input"
+      id="nameInput"
+      type="text"
+      maxlength="20"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="words"
+      spellcheck="false"
+      data-i18n-placeholder="namePlaceholder"
+    >
+    <div class="name-error" id="nameError"></div>
+    <button class="name-submit" id="nameSubmit" onclick="submitName()" data-i18n="joinBtn">Join</button>
+  </div>
+
   <div class="home-bar"></div>
 </div>
 
@@ -431,12 +651,267 @@
 <script>
 const socket = io();
 
+// ── i18n ──────────────────────────────────────────────────────────────────────
+
+const TRANSLATIONS = {
+  en: {
+    enterPasscode: 'Enter Passcode',
+    enterName: 'Enter Your Name',
+    joinSubtitle: 'Pick a display name to play',
+    namePlaceholder: 'Your name',
+    joinBtn: 'Join',
+    players: 'Players',
+    playing: 'playing',
+    lockedOut: 'locked out',
+    guesses: 'guesses',
+    phoneDisabled: 'Phone is Disabled',
+    tryAgainIn: 'Try again in',
+    youCrackedIt: 'You Cracked It!',
+    crackedIt: '{name} Cracked It!',
+    thePasscodeWas: 'The passcode was',
+    totalGuesses: 'Total guesses this round: {n}',
+    nextRoundIn: 'Next round in {n}s...',
+    starting: 'Starting...',
+    failedOne: '{n} failed \u2014 {left} more until lockout',
+    failedMany: '{n} failed attempts',
+  },
+  es: {
+    enterPasscode: 'Ingresa el código',
+    enterName: 'Ingresa tu nombre',
+    joinSubtitle: 'Elige un nombre para jugar',
+    namePlaceholder: 'Tu nombre',
+    joinBtn: 'Unirse',
+    players: 'Jugadores',
+    playing: 'jugando',
+    lockedOut: 'bloqueados',
+    guesses: 'intentos',
+    phoneDisabled: 'Teléfono bloqueado',
+    tryAgainIn: 'Vuelve en',
+    youCrackedIt: '¡Lo lograste!',
+    crackedIt: '¡{name} lo logró!',
+    thePasscodeWas: 'El código era',
+    totalGuesses: 'Total de intentos: {n}',
+    nextRoundIn: 'Próxima ronda en {n}s...',
+    starting: 'Iniciando...',
+    failedOne: '{n} fallido \u2014 {left} más hasta bloqueo',
+    failedMany: '{n} intentos fallidos',
+  },
+  fr: {
+    enterPasscode: 'Entrez le code',
+    enterName: 'Entrez votre nom',
+    joinSubtitle: 'Choisissez un pseudo pour jouer',
+    namePlaceholder: 'Votre nom',
+    joinBtn: 'Rejoindre',
+    players: 'Joueurs',
+    playing: 'en jeu',
+    lockedOut: 'bloqués',
+    guesses: 'essais',
+    phoneDisabled: 'Téléphone bloqué',
+    tryAgainIn: 'Réessayez dans',
+    youCrackedIt: 'Vous l\'avez trouvé !',
+    crackedIt: '{name} l\'a trouvé !',
+    thePasscodeWas: 'Le code était',
+    totalGuesses: 'Total d\'essais : {n}',
+    nextRoundIn: 'Prochain tour dans {n}s...',
+    starting: 'Démarrage...',
+    failedOne: '{n} raté \u2014 encore {left} avant blocage',
+    failedMany: '{n} tentatives ratées',
+  },
+  de: {
+    enterPasscode: 'Code eingeben',
+    enterName: 'Name eingeben',
+    joinSubtitle: 'Wähle einen Anzeigenamen',
+    namePlaceholder: 'Dein Name',
+    joinBtn: 'Beitreten',
+    players: 'Spieler',
+    playing: 'spielen',
+    lockedOut: 'gesperrt',
+    guesses: 'Versuche',
+    phoneDisabled: 'Telefon gesperrt',
+    tryAgainIn: 'Erneut versuchen in',
+    youCrackedIt: 'Du hast es geknackt!',
+    crackedIt: '{name} hat es geknackt!',
+    thePasscodeWas: 'Der Code war',
+    totalGuesses: 'Versuche diese Runde: {n}',
+    nextRoundIn: 'Nächste Runde in {n}s...',
+    starting: 'Wird gestartet...',
+    failedOne: '{n} fehlgeschlagen \u2014 noch {left} bis zur Sperre',
+    failedMany: '{n} fehlgeschlagene Versuche',
+  },
+  pt: {
+    enterPasscode: 'Digite o código',
+    enterName: 'Digite seu nome',
+    joinSubtitle: 'Escolha um nome para jogar',
+    namePlaceholder: 'Seu nome',
+    joinBtn: 'Entrar',
+    players: 'Jogadores',
+    playing: 'jogando',
+    lockedOut: 'bloqueados',
+    guesses: 'tentativas',
+    phoneDisabled: 'Telefone bloqueado',
+    tryAgainIn: 'Tente novamente em',
+    youCrackedIt: 'Você descobriu!',
+    crackedIt: '{name} descobriu!',
+    thePasscodeWas: 'O código era',
+    totalGuesses: 'Total de tentativas: {n}',
+    nextRoundIn: 'Próxima rodada em {n}s...',
+    starting: 'Iniciando...',
+    failedOne: '{n} falhou \u2014 {left} mais até bloquear',
+    failedMany: '{n} tentativas falhas',
+  },
+  ja: {
+    enterPasscode: 'パスコードを入力',
+    enterName: '名前を入力',
+    joinSubtitle: '表示名を選んでください',
+    namePlaceholder: 'あなたの名前',
+    joinBtn: '参加',
+    players: 'プレイヤー',
+    playing: 'プレイ中',
+    lockedOut: 'ロック中',
+    guesses: '試行',
+    phoneDisabled: '使用不可',
+    tryAgainIn: '次まで',
+    youCrackedIt: '解読成功！',
+    crackedIt: '{name}が解読！',
+    thePasscodeWas: 'パスコードは',
+    totalGuesses: 'このラウンドの試行数: {n}',
+    nextRoundIn: '次のラウンドまで{n}秒...',
+    starting: '開始中...',
+    failedOne: '{n}回失敗 \u2014 あと{left}回でロック',
+    failedMany: '{n}回失敗',
+  },
+  zh: {
+    enterPasscode: '输入密码',
+    enterName: '输入名字',
+    joinSubtitle: '选择一个显示名称',
+    namePlaceholder: '你的名字',
+    joinBtn: '加入',
+    players: '玩家',
+    playing: '游戏中',
+    lockedOut: '已锁定',
+    guesses: '次猜测',
+    phoneDisabled: '手机已禁用',
+    tryAgainIn: '请在以下时间后重试',
+    youCrackedIt: '你破解了！',
+    crackedIt: '{name}破解了！',
+    thePasscodeWas: '密码是',
+    totalGuesses: '本轮总猜测数：{n}',
+    nextRoundIn: '{n}秒后开始下一轮...',
+    starting: '正在开始...',
+    failedOne: '{n}次失败 \u2014 还剩{left}次',
+    failedMany: '{n}次失败',
+  },
+  ar: {
+    enterPasscode: 'أدخل الرمز',
+    enterName: 'أدخل اسمك',
+    joinSubtitle: 'اختر اسماً للعب',
+    namePlaceholder: 'اسمك',
+    joinBtn: 'انضم',
+    players: 'اللاعبون',
+    playing: 'يلعبون',
+    lockedOut: 'محظورون',
+    guesses: 'محاولات',
+    phoneDisabled: 'الهاتف معطّل',
+    tryAgainIn: 'أعد المحاولة بعد',
+    youCrackedIt: 'لقد كسرته!',
+    crackedIt: 'كسره {name}!',
+    thePasscodeWas: 'كان الرمز',
+    totalGuesses: 'إجمالي المحاولات: {n}',
+    nextRoundIn: 'الجولة التالية خلال {n}ث...',
+    starting: 'جارٍ البدء...',
+    failedOne: '{n} فاشل \u2014 {left} أخرى قبل القفل',
+    failedMany: '{n} محاولة فاشلة',
+  },
+  hi: {
+    enterPasscode: 'पासकोड दर्ज करें',
+    enterName: 'अपना नाम दर्ज करें',
+    joinSubtitle: 'खेलने के लिए एक नाम चुनें',
+    namePlaceholder: 'आपका नाम',
+    joinBtn: 'शामिल हों',
+    players: 'खिलाड़ी',
+    playing: 'खेल रहे हैं',
+    lockedOut: 'लॉक',
+    guesses: 'अनुमान',
+    phoneDisabled: 'फोन अक्षम है',
+    tryAgainIn: 'इसके बाद पुनः प्रयास करें',
+    youCrackedIt: 'आपने तोड़ दिया!',
+    crackedIt: '{name} ने तोड़ दिया!',
+    thePasscodeWas: 'पासकोड था',
+    totalGuesses: 'इस राउंड में कुल अनुमान: {n}',
+    nextRoundIn: '{n} सेकंड में अगला राउंड...',
+    starting: 'शुरू हो रहा है...',
+    failedOne: '{n} विफल \u2014 लॉकआउट से पहले {left} और',
+    failedMany: '{n} विफल प्रयास',
+  },
+  ko: {
+    enterPasscode: '암호 입력',
+    enterName: '이름 입력',
+    joinSubtitle: '표시 이름을 선택하세요',
+    namePlaceholder: '이름',
+    joinBtn: '참가',
+    players: '플레이어',
+    playing: '플레이 중',
+    lockedOut: '잠김',
+    guesses: '시도',
+    phoneDisabled: '사용 불가',
+    tryAgainIn: '재시도 가능',
+    youCrackedIt: '해독 성공!',
+    crackedIt: '{name}이 해독했어요!',
+    thePasscodeWas: '비밀번호는',
+    totalGuesses: '이번 라운드 총 시도: {n}',
+    nextRoundIn: '{n}초 후 다음 라운드...',
+    starting: '시작 중...',
+    failedOne: '{n}번 실패 \u2014 {left}번 더 하면 잠금',
+    failedMany: '{n}번 실패',
+  },
+};
+
+const LOCALE_MAP = {
+  en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE',
+  pt: 'pt-BR', ja: 'ja-JP', zh: 'zh-CN', ar: 'ar-SA',
+  hi: 'hi-IN', ko: 'ko-KR',
+};
+
+let currentLang = 'en';
+
+function t(key, vars) {
+  const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+  let str = lang[key] || TRANSLATIONS.en[key] || key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+    }
+  }
+  return str;
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  updateAttemptInfo();
+}
+
+function changeLang(lang) {
+  currentLang = lang;
+  applyTranslations();
+  updateClock();
+}
+
+// ── Game state ─────────────────────────────────────────────────────────────────
+
 let currentInput = '';
 let disabled = false;
 let disabledUntil = null;
 let disableInterval = null;
 let myAttempts = 0;
 let locked = false;
+let myName = null;
+let myWon = false;
+let playersPanelOpen = false;
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
 
@@ -445,9 +920,10 @@ function updateClock() {
   const h = now.getHours();
   const m = String(now.getMinutes()).padStart(2, '0');
   document.getElementById('timeDisplay').textContent = `${h > 12 ? h - 12 : h || 12}:${m}`;
-  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  document.getElementById('dateDisplay').textContent = `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`;
+  const locale = LOCALE_MAP[currentLang] || 'en-US';
+  document.getElementById('dateDisplay').textContent = now.toLocaleDateString(locale, {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
 }
 setInterval(updateClock, 1000);
 updateClock();
@@ -465,6 +941,54 @@ updateClock();
   }
 })();
 
+// ── Name entry ────────────────────────────────────────────────────────────────
+
+function submitName() {
+  const input = document.getElementById('nameInput');
+  const raw = input.value.trim();
+  if (!raw) return;
+  document.getElementById('nameError').textContent = '';
+  document.getElementById('nameSubmit').disabled = true;
+  socket.emit('set_name', raw);
+}
+
+document.getElementById('nameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitName();
+});
+
+// ── Players panel ─────────────────────────────────────────────────────────────
+
+function togglePlayers() {
+  playersPanelOpen = !playersPanelOpen;
+  document.getElementById('playersPanel').classList.toggle('hidden', !playersPanelOpen);
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderPlayers(list) {
+  const container = document.getElementById('playersList');
+  container.innerHTML = '';
+  if (!list || list.length === 0) return;
+  for (const p of list) {
+    const row = document.createElement('div');
+    row.className = 'player-row';
+    const dot = document.createElement('span');
+    dot.className = 'player-dot ' + (p.lockedOut ? 'locked' : 'active');
+    const name = document.createElement('span');
+    name.className = 'player-name' + (p.name === myName ? ' is-me' : '');
+    name.textContent = p.name;
+    row.appendChild(dot);
+    row.appendChild(name);
+    container.appendChild(row);
+  }
+}
+
 // ── UI helpers ────────────────────────────────────────────────────────────────
 
 function updateDots() {
@@ -478,6 +1002,9 @@ function updateStats(stats) {
   document.getElementById('statOnline').textContent = stats.online.toLocaleString();
   document.getElementById('statLocked').textContent = stats.lockedOut.toLocaleString();
   document.getElementById('statGuesses').textContent = stats.totalGuesses.toLocaleString();
+  document.getElementById('roundBanner').textContent = t('enterPasscode').includes('Passcode')
+    ? 'ROUND ' + stats.roundNumber
+    : t('players') + ' \u2014 ' + stats.roundNumber;
   document.getElementById('roundBanner').textContent = 'ROUND ' + stats.roundNumber;
 }
 
@@ -486,9 +1013,9 @@ function updateAttemptInfo() {
   if (myAttempts === 0) { el.innerHTML = ''; return; }
   if (myAttempts < 6) {
     const left = 6 - myAttempts;
-    el.innerHTML = `${myAttempts} failed &mdash; <span class="warn">${left} more until lockout</span>`;
+    el.innerHTML = `<span class="warn">${t('failedOne', { n: myAttempts, left })}</span>`;
   } else {
-    el.innerHTML = `<span class="warn">${myAttempts} failed attempts</span>`;
+    el.innerHTML = `<span class="warn">${t('failedMany', { n: myAttempts })}</span>`;
   }
 }
 
@@ -525,26 +1052,34 @@ function showDisabled(until) {
   disableInterval = setInterval(tick, 250);
 }
 
-function showWinner(isMe, code, totalGuesses) {
+function showWinner(isMe, winnerName, code, totalGuesses) {
   locked = true;
   const overlay = document.getElementById('winnerOverlay');
   overlay.classList.remove('hidden');
   if (isMe) {
     overlay.classList.add('you-won');
-    document.getElementById('winnerTitle').textContent = 'You Cracked It!';
+    document.getElementById('winnerTitle').textContent = t('youCrackedIt');
+    document.getElementById('winnerName').textContent = myName || '';
   } else {
     overlay.classList.remove('you-won');
-    document.getElementById('winnerTitle').textContent = 'Someone Cracked It!';
+    document.getElementById('winnerTitle').textContent = winnerName
+      ? t('crackedIt', { name: winnerName })
+      : t('crackedIt', { name: '???' });
+    document.getElementById('winnerName').textContent = '';
   }
   if (code) document.getElementById('winnerCode').textContent = code;
-  document.getElementById('winnerStats').textContent = `Total guesses this round: ${totalGuesses.toLocaleString()}`;
+  document.getElementById('winnerStats').textContent = t('totalGuesses', { n: totalGuesses.toLocaleString() });
   if (isMe) spawnConfetti();
   let countdown = 8;
-  document.getElementById('winnerNext').textContent = `Next round in ${countdown}s...`;
+  document.getElementById('winnerNext').textContent = t('nextRoundIn', { n: countdown });
   const ci = setInterval(() => {
     countdown--;
-    if (countdown <= 0) { clearInterval(ci); document.getElementById('winnerNext').textContent = 'Starting...'; }
-    else document.getElementById('winnerNext').textContent = `Next round in ${countdown}s...`;
+    if (countdown <= 0) {
+      clearInterval(ci);
+      document.getElementById('winnerNext').textContent = t('starting');
+    } else {
+      document.getElementById('winnerNext').textContent = t('nextRoundIn', { n: countdown });
+    }
   }, 1000);
 }
 
@@ -567,7 +1102,7 @@ function spawnConfetti() {
 // ── Input ─────────────────────────────────────────────────────────────────────
 
 function pressKey(num) {
-  if (disabled || locked) return;
+  if (!myName || disabled || locked) return;
   if (currentInput.length >= 4) return;
   const btn = document.querySelector(`[data-num="${num}"]`);
   if (btn) { btn.classList.add('pressed'); setTimeout(() => btn.classList.remove('pressed'), 120); }
@@ -579,7 +1114,7 @@ function pressKey(num) {
 }
 
 function deleteKey() {
-  if (disabled || locked) return;
+  if (!myName || disabled || locked) return;
   currentInput = currentInput.slice(0, -1);
   updateDots();
 }
@@ -595,12 +1130,25 @@ socket.on('init', (data) => {
   myAttempts = data.playerState.attempts;
   updateStats(data.stats);
   updateAttemptInfo();
+  if (data.players) renderPlayers(data.players);
   if (data.playerState.disabledUntil && data.playerState.disabledUntil > Date.now()) {
     showDisabled(data.playerState.disabledUntil);
   }
 });
 
 socket.on('stats', (stats) => { updateStats(stats); });
+
+socket.on('players', (list) => { renderPlayers(list); });
+
+socket.on('name_accepted', (data) => {
+  myName = data.name;
+  document.getElementById('nameOverlay').classList.add('hidden');
+});
+
+socket.on('name_rejected', (data) => {
+  document.getElementById('nameError').textContent = data.reason || 'Name not allowed.';
+  document.getElementById('nameSubmit').disabled = false;
+});
 
 socket.on('wrong', (data) => {
   myAttempts = data.attempts;
@@ -616,7 +1164,8 @@ socket.on('wrong', (data) => {
   }, 500);
 });
 
-socket.on('correct', (data) => {
+socket.on('correct', () => {
+  myWon = true;
   for (let i = 0; i < 4; i++) document.getElementById('d' + i).className = 'dot correct';
 });
 
@@ -627,8 +1176,8 @@ socket.on('disabled', (data) => {
 });
 
 socket.on('round_won', (data) => {
-  const isMe = document.querySelector('.dot.correct') !== null;
-  showWinner(isMe, null, data.totalGuesses);
+  showWinner(myWon, data.winnerName, null, data.totalGuesses);
+  myWon = false;
   if (data.stats) updateStats(data.stats);
 });
 
@@ -646,6 +1195,7 @@ socket.on('new_round', (data) => {
   updateDots();
   updateStats(data.stats);
   updateAttemptInfo();
+  if (data.players) renderPlayers(data.players);
 });
 </script>
 </body>

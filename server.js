@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const https = require('https');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,7 +10,10 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Game State ────────────────────────────────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────────────
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const AUTO_RESET_MINUTES = 30;
 
 const DISABLE_SCHEDULE = [
   { after: 6,  seconds: 60 },
@@ -20,6 +24,72 @@ const DISABLE_SCHEDULE = [
   { after: 11, seconds: 14400 },
 ];
 
+// ── Moderation ────────────────────────────────────────────────────────────────
+
+function normalizeText(text) {
+  return text
+    .toLowerCase()
+    .replace(/ph/g, 'f')
+    .replace(/kn/g, 'n')
+    .replace(/ck/g, 'k')
+    .replace(/@/g, 'a')
+    .replace(/3/g, 'e')
+    .replace(/0/g, 'o')
+    .replace(/1/g, 'i')
+    .replace(/\$/g, 's')
+    .replace(/5/g, 's')
+    .replace(/!/g, 'i')
+    .replace(/\+/g, 't')
+    .replace(/[-_.*]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function moderateName(name) {
+  if (!OPENAI_API_KEY) return { ok: true };
+
+  const normalized = normalizeText(name);
+
+  return new Promise((resolve) => {
+    const body = JSON.stringify({ input: normalized });
+    const options = {
+      hostname: 'api.openai.com',
+      path: '/v1/moderations',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          const result = json.results?.[0];
+          if (result?.flagged) {
+            resolve({ ok: false, reason: 'Name not allowed.' });
+          } else {
+            resolve({ ok: true });
+          }
+        } catch {
+          resolve({ ok: true });
+        }
+      });
+    });
+
+    req.on('error', () => resolve({ ok: true }));
+    req.setTimeout(3000, () => { req.destroy(); resolve({ ok: true }); });
+    req.write(body);
+    req.end();
+  });
+}
+
+// ── Game State ────────────────────────────────────────────────────────────────
+
 let round = {
   number: 1,
   password: generatePassword(),
@@ -28,7 +98,8 @@ let round = {
   totalGuesses: 0,
 };
 
-// Per-player state keyed by socket id
+let autoResetTimeout = null;
+
 const players = new Map();
 
 function generatePassword() {
@@ -46,16 +117,29 @@ function getDisableSeconds(attempts) {
 
 function getPlayerState(socketId) {
   if (!players.has(socketId)) {
-    players.set(socketId, {
-      attempts: 0,
-      disabledUntil: null,
-    });
+    players.set(socketId, { attempts: 0, disabledUntil: null, name: null });
   }
   return players.get(socketId);
 }
 
+function getPlayerList() {
+  const now = Date.now();
+  const list = [];
+  for (const [id, p] of players) {
+    if (p.name) {
+      list.push({
+        id,
+        name: p.name,
+        attempts: p.attempts,
+        lockedOut: !!(p.disabledUntil && p.disabledUntil > now),
+      });
+    }
+  }
+  return list;
+}
+
 function getStats() {
-  let online = io.engine.clientsCount;
+  const online = io.engine.clientsCount;
   let lockedOut = 0;
   const now = Date.now();
   for (const [, p] of players) {
@@ -67,7 +151,19 @@ function getStats() {
     totalGuesses: round.totalGuesses,
     roundNumber: round.number,
     roundStartedAt: round.startedAt,
+    autoResetAt: round.startedAt + AUTO_RESET_MINUTES * 60 * 1000,
   };
+}
+
+function scheduleAutoReset() {
+  if (autoResetTimeout) clearTimeout(autoResetTimeout);
+  autoResetTimeout = setTimeout(() => {
+    if (!round.winner) {
+      console.log(`Auto-reset: Round ${round.number} timed out after ${AUTO_RESET_MINUTES} minutes`);
+      startNewRound();
+      broadcastNewRound();
+    }
+  }, AUTO_RESET_MINUTES * 60 * 1000);
 }
 
 function startNewRound() {
@@ -78,12 +174,27 @@ function startNewRound() {
     winner: null,
     totalGuesses: 0,
   };
-  // Reset all player states
   for (const [, p] of players) {
     p.attempts = 0;
     p.disabledUntil = null;
   }
+  scheduleAutoReset();
   console.log(`Round ${round.number} — password: ${round.password}`);
+}
+
+function broadcastNewRound() {
+  for (const [id] of players) {
+    const sock = io.sockets.sockets.get(id);
+    if (sock) {
+      const ps = getPlayerState(id);
+      sock.emit('new_round', {
+        stats: getStats(),
+        playerState: { attempts: ps.attempts, disabledUntil: ps.disabledUntil },
+        roundNumber: round.number,
+        players: getPlayerList(),
+      });
+    }
+  }
 }
 
 // ── Socket.IO ─────────────────────────────────────────────────────────────────
@@ -91,94 +202,83 @@ function startNewRound() {
 io.on('connection', (socket) => {
   const player = getPlayerState(socket.id);
 
-  // Send initial state
   socket.emit('init', {
     stats: getStats(),
-    playerState: {
-      attempts: player.attempts,
-      disabledUntil: player.disabledUntil,
-    },
+    playerState: { attempts: player.attempts, disabledUntil: player.disabledUntil },
     roundNumber: round.number,
+    players: getPlayerList(),
   });
 
-  // Broadcast updated player count
   io.emit('stats', getStats());
+  io.emit('players', getPlayerList());
+
+  socket.on('set_name', async (rawName) => {
+    if (typeof rawName !== 'string') return;
+    const name = rawName.replace(/[^a-zA-Z0-9 '_\-.]/g, '').trim().slice(0, 20);
+    if (name.length < 1) {
+      socket.emit('name_rejected', { reason: 'Name too short.' });
+      return;
+    }
+    const mod = await moderateName(name);
+    if (!mod.ok) {
+      socket.emit('name_rejected', { reason: mod.reason || 'Name not allowed.' });
+      return;
+    }
+    player.name = name;
+    socket.emit('name_accepted', { name });
+    io.emit('players', getPlayerList());
+  });
 
   socket.on('guess', (code) => {
-    // Validate input
     if (typeof code !== 'string' || !/^\d{4}$/.test(code)) return;
     if (round.winner) return;
+    if (!player.name) return;
 
-    const p = getPlayerState(socket.id);
     const now = Date.now();
 
-    // Check if player is disabled
-    if (p.disabledUntil && p.disabledUntil > now) {
-      socket.emit('disabled', {
-        until: p.disabledUntil,
-        attempts: p.attempts,
-      });
+    if (player.disabledUntil && player.disabledUntil > now) {
+      socket.emit('disabled', { until: player.disabledUntil, attempts: player.attempts });
       return;
     }
 
-    // Clear expired disable
-    if (p.disabledUntil && p.disabledUntil <= now) {
-      p.disabledUntil = null;
+    if (player.disabledUntil && player.disabledUntil <= now) {
+      player.disabledUntil = null;
     }
 
     round.totalGuesses++;
-    p.attempts++;
+    player.attempts++;
 
     if (code === round.password) {
-      // Winner!
       round.winner = socket.id;
       socket.emit('correct', { password: round.password });
       io.emit('round_won', {
         roundNumber: round.number,
         totalGuesses: round.totalGuesses,
+        winnerName: player.name,
         stats: getStats(),
       });
 
-      // Start new round after 8 seconds
       setTimeout(() => {
         startNewRound();
-        // Reset all connected players
-        for (const [id] of players) {
-          const sock = io.sockets.sockets.get(id);
-          if (sock) {
-            const ps = getPlayerState(id);
-            sock.emit('new_round', {
-              stats: getStats(),
-              playerState: {
-                attempts: ps.attempts,
-                disabledUntil: ps.disabledUntil,
-              },
-              roundNumber: round.number,
-            });
-          }
-        }
+        broadcastNewRound();
       }, 8000);
 
     } else {
-      // Wrong guess
-      const disableSeconds = getDisableSeconds(p.attempts);
+      const disableSeconds = getDisableSeconds(player.attempts);
       if (disableSeconds > 0) {
-        p.disabledUntil = now + disableSeconds * 1000;
+        player.disabledUntil = now + disableSeconds * 1000;
       }
-
-      socket.emit('wrong', {
-        attempts: p.attempts,
-        disabledUntil: p.disabledUntil,
-      });
+      socket.emit('wrong', { attempts: player.attempts, disabledUntil: player.disabledUntil });
     }
 
-    // Broadcast stats
     io.emit('stats', getStats());
+    io.emit('players', getPlayerList());
   });
 
   socket.on('disconnect', () => {
     players.delete(socket.id);
     io.emit('stats', getStats());
+    io.emit('players', getPlayerList());
   });
 });
 
@@ -186,6 +286,7 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`iPad Lockscreen Game running on http://localhost:${PORT}`);
+  console.log(`Lockscreen Game running on http://localhost:${PORT}`);
   console.log(`Round ${round.number} — password: ${round.password}`);
+  scheduleAutoReset();
 });
