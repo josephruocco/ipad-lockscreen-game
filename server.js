@@ -50,7 +50,7 @@ async function moderateName(name) {
   const normalized = normalizeText(name);
 
   return new Promise((resolve) => {
-    const body = JSON.stringify({ input: normalized });
+    const body = JSON.stringify({ input: [name, normalized] });
     const options = {
       hostname: 'api.openai.com',
       path: '/v1/moderations',
@@ -68,8 +68,8 @@ async function moderateName(name) {
       res.on('end', () => {
         try {
           const json = JSON.parse(data);
-          const result = json.results?.[0];
-          if (result?.flagged) {
+          const flagged = json.results?.some(r => r.flagged);
+          if (flagged) {
             resolve({ ok: false, reason: 'Name not allowed.' });
           } else {
             resolve({ ok: true });
