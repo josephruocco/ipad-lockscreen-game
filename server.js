@@ -103,7 +103,8 @@ let round = {
   totalGuesses: 0,
 };
 
-const players = new Map();
+const players = new Map();      // keyed by persistent playerId
+const socketToPlayer = new Map(); // socketId -> playerId
 
 function generatePassword() {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -118,20 +119,20 @@ function getDisableSeconds(attempts) {
   return 0;
 }
 
-function getPlayerState(socketId) {
-  if (!players.has(socketId)) {
-    players.set(socketId, { attempts: 0, disabledUntil: null, name: null, guessed: new Set() });
+function getPlayerState(playerId) {
+  if (!players.has(playerId)) {
+    players.set(playerId, { attempts: 0, disabledUntil: null, name: null, guessed: new Set(), socketId: null });
   }
-  return players.get(socketId);
+  return players.get(playerId);
 }
 
 function getPlayerList() {
   const now = Date.now();
   const list = [];
-  for (const [id, p] of players) {
-    if (p.name) {
+  for (const [pid, p] of players) {
+    if (p.name && p.socketId) {
       list.push({
-        id,
+        id: pid,
         name: p.name,
         attempts: p.attempts,
         lockedOut: !!(p.disabledUntil && p.disabledUntil > now),
@@ -146,7 +147,7 @@ function getStats() {
   let lockedOut = 0;
   const now = Date.now();
   for (const [, p] of players) {
-    if (p.disabledUntil && p.disabledUntil > now) lockedOut++;
+    if (p.socketId && p.disabledUntil && p.disabledUntil > now) lockedOut++;
   }
   return {
     online,
@@ -174,8 +175,9 @@ function startNewRound() {
 }
 
 function broadcastNewRound() {
-  for (const [id, sock] of io.sockets.sockets) {
-    const ps = getPlayerState(id);
+  for (const [socketId, sock] of io.sockets.sockets) {
+    const pid = socketToPlayer.get(socketId);
+    const ps = pid ? getPlayerState(pid) : { attempts: 0, disabledUntil: null };
     sock.emit('new_round', {
       stats: getStats(),
       playerState: { attempts: ps.attempts, disabledUntil: ps.disabledUntil },
@@ -188,19 +190,41 @@ function broadcastNewRound() {
 // ── Socket.IO ─────────────────────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
-  const player = getPlayerState(socket.id);
+  let playerId = null;
+  let player = null;
 
-  socket.emit('init', {
-    stats: getStats(),
-    playerState: { attempts: player.attempts, disabledUntil: player.disabledUntil },
-    roundNumber: round.number,
-    players: getPlayerList(),
+  socket.on('register', (pid) => {
+    if (typeof pid !== 'string' || pid.length < 8 || pid.length > 64) return;
+    playerId = pid;
+
+    // Clean up old socket mapping if this player was already connected
+    const oldSocketId = players.get(playerId)?.socketId;
+    if (oldSocketId && oldSocketId !== socket.id) {
+      socketToPlayer.delete(oldSocketId);
+    }
+
+    player = getPlayerState(playerId);
+    player.socketId = socket.id;
+    socketToPlayer.set(socket.id, playerId);
+
+    socket.emit('init', {
+      stats: getStats(),
+      playerState: { attempts: player.attempts, disabledUntil: player.disabledUntil },
+      roundNumber: round.number,
+      players: getPlayerList(),
+    });
+
+    // If player had a name, auto-accept it
+    if (player.name) {
+      socket.emit('name_accepted', { name: player.name });
+    }
+
+    io.emit('stats', getStats());
+    io.emit('players', getPlayerList());
   });
 
-  io.emit('stats', getStats());
-  io.emit('players', getPlayerList());
-
   socket.on('set_name', async (rawName) => {
+    if (!player) return;
     if (typeof rawName !== 'string') return;
     const name = rawName.replace(/[^a-zA-Z0-9 '_\-.]/g, '').trim().slice(0, 20);
     if (name.length < 1) {
@@ -218,6 +242,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('guess', (code) => {
+    if (!player) return;
     if (typeof code !== 'string' || !/^\d{4}$/.test(code)) return;
     if (round.winner) return;
     if (!player.name) return;
@@ -243,7 +268,7 @@ io.on('connection', (socket) => {
     player.attempts++;
 
     if (code === round.password) {
-      round.winner = socket.id;
+      round.winner = playerId;
       socket.emit('correct', { password: round.password });
       io.emit('round_won', {
         roundNumber: round.number,
@@ -275,7 +300,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    players.delete(socket.id);
+    if (playerId && players.has(playerId)) {
+      players.get(playerId).socketId = null;
+    }
+    socketToPlayer.delete(socket.id);
     io.emit('stats', getStats());
     io.emit('players', getPlayerList());
   });

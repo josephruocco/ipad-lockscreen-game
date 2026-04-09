@@ -682,7 +682,21 @@ tabChannel.onmessage = (e) => {
   }
 };
 
+// ── Persistent player ID ─────────────────────────────────────────────────────
+function getPlayerId() {
+  let id = localStorage.getItem('playerId');
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem('playerId', id);
+  }
+  return id;
+}
+const playerId = getPlayerId();
+
 const socket = io();
+socket.on('connect', () => {
+  socket.emit('register', playerId);
+});
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
 
@@ -976,13 +990,6 @@ updateClock();
 })();
 
 // ── Name entry ────────────────────────────────────────────────────────────────
-
-(function autoRestoreName() {
-  const saved = localStorage.getItem('playerName');
-  if (saved) {
-    socket.emit('set_name', saved);
-  }
-})();
 
 function submitName() {
   const input = document.getElementById('nameInput');
